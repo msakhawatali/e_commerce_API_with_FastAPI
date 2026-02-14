@@ -36,6 +36,21 @@ class Product (Model):
     date_published = fields.datetimeField(default = datetime.utcnow)
     business = fields.ForeignKeyField("models.Business", related_name="products")
 
+class Cart(Model):
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField("models.User", related_name="cart_items")
+    product = fields.ForeignKeyField("models.Product", related_name="cart_items")
+    quantity = fields.IntField(default=1)
+    created_at = fields.DatetimeField(default=datetime.utcnow)
+
+class Order(Model):
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField("models.User", related_name="orders")
+    total_amount = fields.DecimalField(max_digits=12, decimal_places=2)
+    status = fields.CharField(max_length=20, default="pending")
+    created_at = fields.DatetimeField(default=datetime.utcnow)
+
+
 
 
 user_pydantic = pydantic_model_creator(User, name = "User", exclude=("is_verified" , ))
@@ -48,3 +63,11 @@ business_pydanticIn = pydantic_model_creator(Business, name = "BusinessIn", excl
 
 product_pydantic = pydantic_model_creator(Product, name = "Product")
 product_pydanticIn = pydantic_model_creator(Product, name="ProductIn", exclude=("percentage_discount","id", "product-image", "date_published"))
+
+cart_pydantic = pydantic_model_creator(Cart, name="Cart")
+cart_pydanticIn = pydantic_model_creator(Cart, name="CartIn", exclude=("id", "created_at"))
+
+order_pydantic = pydantic_model_creator(Order, name="Order")
+order_pydanticIn = pydantic_model_creator(Order, name="OrderIn", exclude=("id", "status", "created_at"))
+
+
