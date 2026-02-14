@@ -4,6 +4,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from tortoise import models
 from tortoise.contrib.fastapi import register_tortoise
+from tortoise.signals import post_save
 from models import *
 
 #Authentication
@@ -418,3 +419,16 @@ async def get_my_orders(user: user_pydantic = Depends(get_current_user)):
     )
 
     return {"status": "ok", "data": orders}
+
+
+@post_save(Order)
+async def order_status_change(
+    sender,
+    instance: Order,
+    created: bool,
+    using_db,
+    update_fields
+):
+    if not created and instance.status == "shipped":
+        print(f"Order {instance.id} has been shipped.")
+        # Yahan future me email bhi bhej sakte ho
