@@ -342,4 +342,79 @@ register_tortoise(
     modules={"models" : ["models"]},
     generate_schemas=True,
     add_exception_handlers=True
+
 )
+
+@app.post("/cart/add/{product_id}")
+async def add_to_cart(product_id: int, quantity: int = 1,
+                      user: user_pydantic = Depends(get_current_user)):
+
+    product = await Product.get(id=product_id)
+
+    cart_item = await Cart.get_or_none(user=user, product=product)
+
+    if cart_item:
+        cart_item.quantity += quantity
+        await cart_item.save()
+    else:
+        cart_item = await Cart.create(user=user, product=product, quantity=quantity)
+
+    response = await cart_pydantic.from_tortoise_orm(cart_item)
+    return {"status": "ok", "data": response}
+
+@app.get("/cart")
+async def view_cart(user: user_pydantic = Depends(get_current_user)):
+
+    cart_items = await cart_pydantic.from_queryset(
+        Cart.filter(user=user).prefetch_related("product")
+    )
+
+    return {"status": "ok", "data": cart_items}
+
+@app.delete("/cart/remove/{product_id}")
+async def remove_from_cart(product_id: int,
+                           user: user_pydantic = Depends(get_current_user)):
+
+    product = await Product.get(id=product_id)
+    cart_item = await Cart.get_or_none(user=user, product=product)
+
+    if not cart_item:
+        raise HTTPException(status_code=404, detail="Item not found in cart")
+
+    await cart_item.delete()
+
+    return {"status": "ok", "message": "Item removed"}
+
+@app.post("/order/checkout")
+async def checkout(user: user_pydantic = Depends(get_current_user)):
+
+    cart_items = await Cart.filter(user=user).prefetch_related("product")
+
+    if not cart_items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    total_amount = 0
+
+    for item in cart_items:
+        total_amount += float(item.product.new_price) * item.quantity
+
+    order = await Order.create(
+        user=user,
+        total_amount=total_amount
+    )
+
+    # Clear cart after order
+    await Cart.filter(user=user).delete()
+
+    response = await order_pydantic.from_tortoise_orm(order)
+
+    return {"status": "ok", "data": response}
+
+@app.get("/orders")
+async def get_my_orders(user: user_pydantic = Depends(get_current_user)):
+
+    orders = await order_pydantic.from_queryset(
+        Order.filter(user=user)
+    )
+
+    return {"status": "ok", "data": orders}
